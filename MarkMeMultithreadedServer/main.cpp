@@ -17,20 +17,20 @@ int main()
 		boost::asio::io_service io_service;
 		tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8189));
 
-		tcp::socket sock(io_service);
-		acceptor.accept(sock);
-		if (!sock.is_open()) {
-			sock.close();
+		auto sock = std::make_shared<tcp::socket>(io_service);
+		acceptor.accept(*sock);
+
+		if (!sock->is_open()) {
+			sock->close();
 			std::cout << "Connection is not established!" << std::endl;
 			continue;
 		}
-
-		std::string client_ip = sock.remote_endpoint().address().to_string();
+		std::string client_ip = sock->remote_endpoint().address().to_string();
 		std::cout << "Connection with host " << client_ip << " is established!" << std::endl;
 
 		boost::asio::streambuf buf;
 		boost::asio::streambuf::mutable_buffers_type bufs = buf.prepare(512);
-		buf.commit(sock.receive(bufs));
+		buf.commit(sock->receive(bufs));
 
 		std::istream is(&buf);
 
@@ -50,11 +50,11 @@ int main()
 			boost::asio::streambuf b;
 			std::ostream os(&b);
 			os << clients[friends_ip] << std::endl;
-			b.consume(sock.send(b.data()));
+			b.consume(sock->send(b.data()));
 			std::cout << "Coordinates: " << clients[friends_ip] << " have been sent." << std::endl;
 		}
 
-		sock.close();
+		sock->close();
 		std::cout << "Connection is closed..." << std::endl;
 	}
 	return 0;
