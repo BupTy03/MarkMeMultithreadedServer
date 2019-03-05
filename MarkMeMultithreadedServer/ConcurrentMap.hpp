@@ -1,6 +1,6 @@
 #pragma once
-#ifndef DATA_BASE_HPP
-#define DATA_BASE_HPP
+#ifndef CONCURRENT_MAP_HPP
+#define CONCURRENT_MAP_HPP
 
 #include <map>
 #include <mutex>
@@ -61,4 +61,4 @@ namespace my
 
 }
 
-#endif // !DATA_BASE_HPP
+#endif // !CONCURRENT_MAP_HPP
