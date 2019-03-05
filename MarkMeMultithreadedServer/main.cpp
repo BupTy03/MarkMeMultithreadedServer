@@ -17,7 +17,7 @@ int main()
 	boost::asio::io_service io_service;
 	tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8189));
 
-	my::TaskManager tm(3);
+	my::TaskManager tm(10);
 
 	while (true) {
 		auto sock = std::make_shared<tcp::socket>(io_service);

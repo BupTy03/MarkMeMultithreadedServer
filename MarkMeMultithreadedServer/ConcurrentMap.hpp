@@ -26,14 +26,14 @@ namespace my
 		}
 
 		// Throws exception: std::out_of_range
-		const std::string& getValue(const std::string& key) const
+		std::string getValue(const std::string& key) const
 		{
 			std::unique_lock<std::mutex> lock(mtx_);
 			std::string val = records_.at(key);
 			return val;
 		}
 
-		const std::string& getValue(const std::string& key, bool& exists) const
+		std::string getValue(const std::string& key, bool& exists) const
 		{
 			std::unique_lock<std::mutex> lock(mtx_);
 
