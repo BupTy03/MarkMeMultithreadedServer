@@ -1,3 +1,4 @@
+/*
 #include "TaskManager.hpp"
 #include "ConcurrentMap.hpp"
 
@@ -11,8 +12,41 @@
 
 using boost::asio::ip::tcp;
 
-int main()
+*/
+
+#include "SQLConnection.hpp"
+#include "SQLDatabase.hpp"
+
+#include <iostream>
+#include <string>
+
+int main(int argc, char* argv[])
 {
+	const std::string doubler = "CREATE TABLE IF NOT EXISTS foo(a,b,c); INSERT INTO foo VALUES(1,2,3); INSERT INTO foo SELECT * FROM foo;";
+	const std::string select = "SELECT * FROM foo;";
+
+	SQLConnection connection("database.db");
+	SQLDatabase db;
+	if (!connection.open()) {
+		std::cout << "Ñonnection is not established!" << std::endl;
+	}
+	else if (!db.execute(connection, select)) {
+		std::cout << "Execution failed!" << std::endl;
+		std::cout << "Error: " << db.getLastErrorMessage() << std::endl;
+	}
+	else {
+		for (auto& record : db.getLastQueryResults()) {
+			for (auto&[key, val] : record) {
+				std::cout << key << " = " << val << std::endl;
+			}
+			std::cout << std::endl;
+		}
+		std::cout << "Executed successfully!" << std::endl;
+	}
+
+	system("pause");
+
+#if 0
 	my::ConcurrentMap clients;
 	boost::asio::io_service io_service;
 	tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8189));
@@ -62,5 +96,7 @@ int main()
 			std::cout << "Connection is closed..." << std::endl;
 		});
 	}
+#endif
+
 	return 0;
 }
