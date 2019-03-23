@@ -3,20 +3,21 @@
 
 #include "sqlite3.h"
 
-#include <string_view>
+#include <string>
 
 class SQLConnection
 {
 public:
 	SQLConnection(){}
-	SQLConnection(std::string_view file)
+	SQLConnection(const std::string& file)
 		: filename_{ file }
 	{}
 
 	~SQLConnection() { if (db_ != nullptr) sqlite3_close(db_); }
 
 	bool open();
-	bool open(std::string_view file);
+	bool open(const std::string& file);
+	void close();
 
 	inline bool isConnected() const { return connected_; }
 	inline int getLastErrorCode() const { return errorCode_; }

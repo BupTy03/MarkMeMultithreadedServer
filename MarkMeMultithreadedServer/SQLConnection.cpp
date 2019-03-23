@@ -12,10 +12,18 @@ bool SQLConnection::open()
 	connected_ = (errorCode_ == 0);
 	return connected_;
 }
-bool SQLConnection::open(std::string_view file)
+bool SQLConnection::open(const std::string& file)
 {
 	filename_ = file;
 	errorCode_ = sqlite3_open(filename_.c_str(), &db_);
 	connected_ = (errorCode_ == 0);
 	return connected_;
+}
+void SQLConnection::close()
+{
+	if (db_ == nullptr) {
+		return;
+	}
+	sqlite3_close(db_);
+	db_ = nullptr;
 }

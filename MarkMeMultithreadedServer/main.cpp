@@ -1,63 +1,40 @@
-/*
-#include "TaskManager.hpp"
-#include "ConcurrentMap.hpp"
+#include "TasksManager.hpp"
+#include "SQLConnection.hpp"
+#include "SQLDatabase.hpp"
 
 #include <iostream>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <boost/asio.hpp>
 #include <boost/asio/basic_streambuf.hpp>
 #include <boost/asio/streambuf.hpp>
 
 using boost::asio::ip::tcp;
 
-*/
-
-#include "SQLConnection.hpp"
-#include "SQLDatabase.hpp"
-
-#include <iostream>
-#include <string>
-
 int main(int argc, char* argv[])
 {
-	const std::string doubler = "CREATE TABLE IF NOT EXISTS foo(a,b,c); INSERT INTO foo VALUES(1,2,3); INSERT INTO foo SELECT * FROM foo;";
-	const std::string select = "SELECT * FROM foo;";
-
-	SQLConnection connection("database.db");
-	SQLDatabase db;
+	SQLConnection connection("users.db");
 	if (!connection.open()) {
-		std::cout << "Ñonnection is not established!" << std::endl;
+		std::cout << "Unable to connect to database!" << std::endl;
+		return 1;
 	}
-	else if (!db.execute(connection, select)) {
-		std::cout << "Execution failed!" << std::endl;
-		std::cout << "Error: " << db.getLastErrorMessage() << std::endl;
-	}
-	else {
-		for (auto& record : db.getLastQueryResults()) {
-			for (auto&[key, val] : record) {
-				std::cout << key << " = " << val << std::endl;
-			}
-			std::cout << std::endl;
-		}
-		std::cout << "Executed successfully!" << std::endl;
-	}
+	SQLDatabase database;
+	database.execute(connection, "CREATE TABLE IF NOT EXISTS users(" \
+								 "	id INTEGER PRIMARY KEY AUTOINCREMENT," \
+								 "	ip VARCHAR(50)," \
+								 "	coordinates VARCHAR(50));");
+	connection.close();
 
-	system("pause");
-
-#if 0
-	my::ConcurrentMap clients;
 	boost::asio::io_service io_service;
 	tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8189));
 
-	my::TaskManager tm(10);
+	TasksManager tm(4);
 
 	while (true) {
 		auto sock = std::make_shared<tcp::socket>(io_service);
 		acceptor.accept(*sock);
 
-		tm.emplaceTask([sock, &clients]() {
+		tm.addTask([sock]() {
 			if (!sock->is_open()) {
 				sock->close();
 				std::cout << "Connection is not established!" << std::endl;
@@ -82,21 +59,45 @@ int main(int argc, char* argv[])
 
 			std::cout << "Coordinates received: " << coordinates << std::endl;
 
-			clients.setValue(client_ip, coordinates);
+			SQLConnection conn("users.db");
+			if (!conn.open()) {
+				std::cout << "Unable to connect to database!" << std::endl;
+				return;
+			}
+			SQLDatabase db;
+			std::string exists = "SELECT id FROM users WHERE ip = '";
+			db.execute(conn, exists + client_ip + "';");
 
-			if (clients.containsKey(friends_ip)) {
+			if ((db.getLastQueryResults()).empty()) {
+				std::string insert_coord = "INSERT INTO users(ip, coordinates) VALUES('";
+				insert_coord += client_ip;
+				insert_coord += "', '";
+				insert_coord += coordinates;
+				db.execute(conn, insert_coord + "');");
+			}
+			else {
+				std::string update_coord = "UPDATE users SET coordinates = '";
+				update_coord += coordinates;
+				update_coord += "' WHERE ip = '";
+				update_coord += client_ip;
+				db.execute(conn, update_coord + "';");
+			}
+
+			std::string select_coord = "SELECT coordinates FROM users WHERE ip = '";
+			db.execute(conn, select_coord + friends_ip + "';");
+			auto results = db.getLastQueryResults();
+			if (!results.empty()) {
 				boost::asio::streambuf b;
 				std::ostream os(&b);
-				os << clients.getValue(friends_ip) << std::endl;
+				os << results[0]["coordinates"] << std::endl;
 				b.consume(sock->send(b.data()));
-				std::cout << "Coordinates: " << clients.getValue(friends_ip) << " have been sent." << std::endl;
+				std::cout << "Coordinates: " << results[0]["coordinates"] << " have been sent." << std::endl;
 			}
 
 			sock->close();
-			std::cout << "Connection is closed..." << std::endl;
+			std::cout << "Connection is closed...\n" << std::endl;
 		});
 	}
-#endif
 
 	return 0;
 }
