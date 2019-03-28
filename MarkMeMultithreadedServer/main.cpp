@@ -5,9 +5,11 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <stdexcept>
 #include <boost/asio.hpp>
 #include <boost/asio/basic_streambuf.hpp>
 #include <boost/asio/streambuf.hpp>
+#include <boost/system/system_error.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -45,7 +47,17 @@ int main(int argc, char* argv[])
 
 			boost::asio::streambuf buf;
 			boost::asio::streambuf::mutable_buffers_type bufs = buf.prepare(512);
-			buf.commit(sock->receive(bufs));
+			try {
+				buf.commit(sock->receive(bufs));
+			}
+			catch (const std::length_error& e) {
+				std::cerr << "Error: Data is greater than the size of the output sequence." << std::endl;
+				return;
+			}
+			catch (const boost::system::system_error& e) {
+				std::cerr << "Error: Retrieving data is failed." << std::endl;
+				return;
+			}
 
 			std::istream is(&buf);
 
@@ -80,7 +92,17 @@ int main(int argc, char* argv[])
 				boost::asio::streambuf b;
 				std::ostream os(&b);
 				os << results[0]["coordinates"] << std::endl;
-				b.consume(sock->send(b.data()));
+				try{
+					b.consume(sock->send(b.data()));
+				}
+				catch (const std::length_error& e) {
+					std::cerr << "Error: Data is greater than the size of the input sequence." << std::endl;
+					return;
+				}
+				catch (const boost::system::system_error& e) {
+					std::cerr << "Error: Sending data is failed." << std::endl;
+					return;
+				}
 				std::cout << "Coordinates: " << results[0]["coordinates"] << " have been sent." << std::endl;
 			}
 
