@@ -1,4 +1,3 @@
-#include "TasksManager.hpp"
 #include "SQLConnection.hpp"
 #include "SQLDatabase.hpp"
 
@@ -7,8 +6,6 @@
 #include <string>
 #include <stdexcept>
 #include <boost/asio.hpp>
-#include <boost/asio/basic_streambuf.hpp>
-#include <boost/asio/streambuf.hpp>
 #include <boost/system/system_error.hpp>
 
 using boost::asio::ip::tcp;
@@ -30,13 +27,12 @@ int main(int argc, char* argv[])
 	boost::asio::io_service io_service;
 	tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8189));
 
-	TasksManager tm(4);
-
+	boost::asio::thread_pool pool;
 	while (true) {
 		auto sock = std::make_shared<tcp::socket>(io_service);
 		acceptor.accept(*sock);
 
-		tm.addTask([sock]() {
+		boost::asio::dispatch(pool, [sock]() {
 			if (!sock->is_open()) {
 				sock->close();
 				std::cout << "Connection is not established!" << std::endl;
@@ -46,7 +42,7 @@ int main(int argc, char* argv[])
 			std::cout << "Connection with host " << client_ip << " is established!" << std::endl;
 
 			boost::asio::streambuf buf;
-			boost::asio::streambuf::mutable_buffers_type bufs = buf.prepare(512);
+			boost::asio::streambuf::mutable_buffers_type bufs = buf.prepare(128);
 			try {
 				buf.commit(sock->receive(bufs));
 			}
@@ -110,6 +106,8 @@ int main(int argc, char* argv[])
 			std::cout << "Connection is closed...\n" << std::endl;
 		});
 	}
+
+	pool.join();
 
 	return 0;
 }
