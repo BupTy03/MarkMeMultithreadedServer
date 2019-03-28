@@ -65,26 +65,16 @@ int main(int argc, char* argv[])
 				return;
 			}
 			SQLDatabase db;
-			std::string exists = "SELECT id FROM users WHERE ip = '";
-			db.execute(conn, exists + client_ip + "';");
+			db.execute(conn, "SELECT id FROM users WHERE ip = '?';", client_ip);
 
 			if ((db.getLastQueryResults()).empty()) {
-				std::string insert_coord = "INSERT INTO users(ip, coordinates) VALUES('";
-				insert_coord += client_ip;
-				insert_coord += "', '";
-				insert_coord += coordinates;
-				db.execute(conn, insert_coord + "');");
+				db.execute(conn, "INSERT INTO users(ip, coordinates) VALUES('?', '?');", client_ip, coordinates);
 			}
 			else {
-				std::string update_coord = "UPDATE users SET coordinates = '";
-				update_coord += coordinates;
-				update_coord += "' WHERE ip = '";
-				update_coord += client_ip;
-				db.execute(conn, update_coord + "';");
+				db.execute(conn, "UPDATE users SET coordinates = '?' WHERE ip = '?';", coordinates, client_ip);
 			}
 
-			std::string select_coord = "SELECT coordinates FROM users WHERE ip = '";
-			db.execute(conn, select_coord + friends_ip + "';");
+			db.execute(conn, "SELECT coordinates FROM users WHERE ip = '?';", friends_ip);
 			auto results = db.getLastQueryResults();
 			if (!results.empty()) {
 				boost::asio::streambuf b;
