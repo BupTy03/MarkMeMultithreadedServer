@@ -3,12 +3,13 @@
 
 #include "sqlite3.h"
 #include "SQLConnection.hpp"
-#include "my_utils.hpp"
 
 #include <string>
 #include <vector>
 #include <map>
 #include <utility>
+
+#include <boost/format.hpp>
 
 class SQLDatabase
 {
@@ -26,6 +27,10 @@ public:
 
 	inline SQLQueryResults getLastQueryResults() { return queryResults_; }
 
+	inline static std::string formatQueryString(const std::string& query_str){ return query_str; }
+	template<class Arg, class... Args>
+	static std::string formatQueryString(const std::string& query_str, Arg&& arg, Args&&... args);
+
 private:
 	SQLQueryResults queryResults_;
 	std::string lastErrorStr_;
@@ -35,7 +40,15 @@ private:
 template<class... Args>
 bool SQLDatabase::execute(const SQLConnection& conn, const std::string& query, Args&&... args)
 {
-	return execute(conn, my_utils::format_str(query, std::forward<Args>(args)...));
+	return execute(conn, formatQueryString(query, std::forward<Args>(args)...));
+}
+
+template<class Arg, class... Args>
+std::string SQLDatabase::formatQueryString(const std::string& query_str, Arg&& arg, Args&&... args)
+{
+	boost::format formatter{ query_str };
+	boost::format* list[] = { &(formatter % std::forward<Arg>(arg)), &(formatter % std::forward<Args>(args))... };
+	return formatter.str();
 }
 
 #endif // !SQLDATABASE_HPP

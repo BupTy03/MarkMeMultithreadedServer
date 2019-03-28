@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
 				std::cout << "Connection is not established!" << std::endl;
 				return;
 			}
-			std::string client_ip = sock->remote_endpoint().address().to_string();
+			std::string client_ip = ((sock->remote_endpoint()).address()).to_string();
 			std::cout << "Connection with host " << client_ip << " is established!" << std::endl;
 
 			boost::asio::streambuf buf;
@@ -73,16 +73,16 @@ int main(int argc, char* argv[])
 				return;
 			}
 			SQLDatabase db;
-			db.execute(conn, "SELECT id FROM users WHERE ip = '?';", client_ip);
+			db.execute(conn, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
 
 			if ((db.getLastQueryResults()).empty()) {
-				db.execute(conn, "INSERT INTO users(ip, coordinates) VALUES('?', '?');", client_ip, coordinates);
+				db.execute(conn, "INSERT INTO users(ip, coordinates) VALUES('%1%', '%2%');", client_ip, coordinates);
 			}
 			else {
-				db.execute(conn, "UPDATE users SET coordinates = '?' WHERE ip = '?';", coordinates, client_ip);
+				db.execute(conn, "UPDATE users SET coordinates = '%1%' WHERE ip = '%2%';", coordinates, client_ip);
 			}
 
-			db.execute(conn, "SELECT coordinates FROM users WHERE ip = '?';", friends_ip);
+			db.execute(conn, "SELECT coordinates FROM users WHERE ip = '%1%';", friends_ip);
 			auto results = db.getLastQueryResults();
 			if (!results.empty()) {
 				boost::asio::streambuf b;
