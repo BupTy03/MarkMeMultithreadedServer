@@ -54,6 +54,9 @@ int main(int argc, char* argv[])
 				std::cerr << "Error: Retrieving data is failed." << std::endl;
 				return;
 			}
+			catch (...) {
+				std::cerr << "Oh, it seems something went wrong with getting the data." << std::endl;
+			}
 
 			std::istream is(&buf);
 
@@ -98,6 +101,9 @@ int main(int argc, char* argv[])
 				catch (const boost::system::system_error& e) {
 					std::cerr << "Error: Sending data is failed." << std::endl;
 					return;
+				}
+				catch (...) {
+					std::cerr << "Oh, it seems something went wrong with sending the data." << std::endl;
 				}
 				std::cout << "Coordinates: " << results[0]["coordinates"] << " have been sent." << std::endl;
 			}
