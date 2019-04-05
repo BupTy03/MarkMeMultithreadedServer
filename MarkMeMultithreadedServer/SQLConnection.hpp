@@ -13,7 +13,7 @@ public:
 		: filename_{ file }
 	{}
 
-	~SQLConnection() { if (db_ != nullptr) sqlite3_close(db_); }
+	~SQLConnection() { this->close(); }
 
 	bool open();
 	bool open(const std::string& file);
