@@ -1,5 +1,10 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "SQLConnection.hpp"
 #include "SQLDatabase.hpp"
+#include "ConsoleLogger.hpp"
+#include "FileLogger.hpp"
+#include "Logger.hpp"
 
 #include <iostream>
 #include <memory>
@@ -20,15 +25,19 @@ enum class RequestType {
 };
 
 bool init_server_db(const std::string& db_filename);
-
-std::pair<RequestType, std::string> receive_user_request(std::shared_ptr<tcp::socket> sock);
-
-void send_to_user(std::shared_ptr<tcp::socket> sock, const std::string& answer);
-
-
+std::pair<RequestType, std::string> receive_user_request(tcp::socket& sock);
+void send_to_user(tcp::socket& sock, const std::string& answer, Logger& logger);
+void handle_user_request(tcp::socket& sock, const std::pair<RequestType, std::string>& rdata, Logger& logger);
 
 int main(int argc, char* argv[])
 {
+	std::unique_ptr<Logger> logger = std::make_unique<FileLogger>("log.txt");
+
+	if (!init_server_db("users.db")) {
+		logger->fatal("Failed to initialize database!");
+		return 1;
+	}
+
 	boost::asio::io_service io_service;
 	tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 8189));
 
@@ -37,80 +46,39 @@ int main(int argc, char* argv[])
 		auto sock = std::make_shared<tcp::socket>(io_service);
 		acceptor.accept(*sock);
 
-		boost::asio::dispatch(pool, [sock]() {
+		boost::asio::dispatch(pool, [sock, &logger]() {
 			if (!sock->is_open()) {
 				sock->close();
-				std::cout << "Connection is not established!" << std::endl;
+				logger->critical("Connection is not established!");
 				return;
 			}
-			std::string client_ip = ((sock->remote_endpoint()).address()).to_string();
-			std::cout << "Connection with host " << client_ip << " is established!" << std::endl;
-			
-			auto received = receive_user_request(sock);
 
-			SQLConnection conn("users.db");
-			if (!conn.open()) {
-				std::cout << "Unable to connect to database!" << std::endl;
+			logger->debug("Connection with host " + ((sock->remote_endpoint()).address()).to_string() + " is established!");
+
+			try {
+				handle_user_request(*sock, receive_user_request(*sock), *logger);
+			}
+			catch (const std::length_error& e) {
+				logger->critical(e.what());
+				sock->close();
+				logger->debug("Connection is closed...\n");
 				return;
 			}
-			SQLDatabase db;
-			switch(received.first)
-			{
-			case RequestType::INIT: {
-				std::cout << "Initializing user..." << std::endl;
-				db.execute(conn, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
-				if ((db.getLastQueryResults()).empty()) {
-					db.execute(conn, "INSERT INTO users(ip) VALUES('%1%');", client_ip);
-					db.execute(conn, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
-				}
-				auto res = db.getLastQueryResults();
-				if (db.getLastErrorCode() != 0 || res.empty()) {
-					send_to_user(sock, "error");
-				}
-				else {
-					send_to_user(sock, res[0]["id"]);
-				}
+			catch (const boost::system::system_error& e) {
+				logger->critical(e.what());
+				sock->close();
+				logger->debug("Connection is closed...\n");
+				return;
 			}
-				break;
-			case RequestType::STORE: {
-				std::cout << "Saving coordinates..." << std::endl;
-				db.execute(conn, "UPDATE users SET coordinates = '%1%' WHERE ip = '%2%';", received.second, client_ip);
-				if (db.getLastErrorCode() != 0) {
-					send_to_user(sock, "error");
-				}
-				else {
-					send_to_user(sock, "");
-				}
-			}
-				break;
-			case RequestType::GET_AND_STORE: {
-				std::cout << "Saving user coordinates and getting friend coordinates..." << std::endl;
-				std::istringstream is(received.second);
-
-				std::string my_coord_1;
-				std::string my_coord_2;
-				is >> my_coord_1;
-				is >> my_coord_2;
-
-				db.execute(conn, "UPDATE users SET coordinates = '%1%' WHERE ip = '%2%';", my_coord_1 + " " + my_coord_2, client_ip);
-
-				std::string friend_id;
-				is >> friend_id;
-
-				db.execute(conn, "SELECT coordinates FROM users WHERE id = '%1%';", friend_id);
-				auto rcoord = db.getLastQueryResults();
-				if (!rcoord.empty()) {
-					send_to_user(sock, rcoord[0]["coordinates"]);
-				}
-				else {
-					send_to_user(sock, "");
-				}
-			}
-				break;
+			catch (...) {
+				logger->fatal("Oh, it seems something went wrong!");
+				sock->close();
+				logger->debug("Connection is closed...\n");
+				return;
 			}
 
 			sock->close();
-			std::cout << "Connection is closed...\n" << std::endl;
+			logger->debug("Connection is closed...\n");
 		});
 	}
 
@@ -136,25 +104,12 @@ bool init_server_db(const std::string& db_filename)
 	return true;
 }
 
-std::pair<RequestType, std::string> receive_user_request(std::shared_ptr<tcp::socket> sock)
+std::pair<RequestType, std::string> receive_user_request(tcp::socket& sock)
 {
 	boost::asio::streambuf buf;
 	boost::asio::streambuf::mutable_buffers_type bufs = buf.prepare(128);
-	try {
-		buf.commit(sock->receive(bufs));
-	}
-	catch (const std::length_error& e) {
-		std::cerr << "Error: Data is greater than the size of the output sequence." << std::endl;
-		return std::make_pair(RequestType::UNKNOWN, ""); 
-	}
-	catch (const boost::system::system_error& e) {
-		std::cerr << "Error: Retrieving data is failed." << std::endl;
-		return std::make_pair(RequestType::UNKNOWN, "");
-	}
-	catch (...) {
-		std::cerr << "Oh, it seems something went wrong with getting the data." << std::endl;
-		return std::make_pair(RequestType::UNKNOWN, "");
-	}
+
+	buf.commit(sock.receive(bufs));
 
 	std::istream is(&buf);
 
@@ -177,25 +132,75 @@ std::pair<RequestType, std::string> receive_user_request(std::shared_ptr<tcp::so
 	return std::make_pair(RequestType::UNKNOWN, std::string());
 }
 
-void send_to_user(std::shared_ptr<tcp::socket> sock, const std::string& answer)
+void send_to_user(tcp::socket& sock, const std::string& answer, Logger& logger)
 {
 	boost::asio::streambuf b;
 	std::ostream os(&b);
 	os << answer << std::endl;
-	try {
-		b.consume(sock->send(b.data()));
-	}
-	catch (const std::length_error& e) {
-		std::cerr << "Error: Data is greater than the size of the input sequence." << std::endl;
+	b.consume(sock.send(b.data()));
+	logger.info("Answer: " + answer + " have been sent.");
+}
+
+void handle_user_request(tcp::socket& sock, const std::pair<RequestType, std::string>& rdata, Logger& logger)
+{
+	SQLConnection conn("users.db");
+	if (!conn.open()) {
+		logger.critical("Unable to connect to database!");
 		return;
 	}
-	catch (const boost::system::system_error& e) {
-		std::cerr << "Error: Sending data is failed." << std::endl;
-		return;
+	SQLDatabase db;
+	auto client_ip = ((sock.remote_endpoint()).address()).to_string();
+	switch (rdata.first) {
+	case RequestType::INIT: {
+		logger.info("Initializing user...");
+		db.execute(conn, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
+		if ((db.getLastQueryResults()).empty()) {
+			db.execute(conn, "INSERT INTO users(ip) VALUES('%1%');", client_ip);
+			db.execute(conn, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
+		}
+		auto res = db.getLastQueryResults();
+		if (db.getLastErrorCode() != 0 || res.empty()) {
+			send_to_user(sock, "", logger);
+		}
+		else {
+			send_to_user(sock, res[0]["id"], logger);
+		}
 	}
-	catch (...) {
-		std::cerr << "Oh, it seems something went wrong with sending the data." << std::endl;
-		return;
+		break;
+	case RequestType::STORE: {
+		logger.info("Saving coordinates...");
+		db.execute(conn, "UPDATE users SET coordinates = '%1%' WHERE ip = '%2%';", rdata.second, client_ip);
+		if (db.getLastErrorCode() != 0) {
+			send_to_user(sock, "", logger);
+		}
+		else {
+			send_to_user(sock, "", logger);
+		}
 	}
-	std::cout << "Answer: " << answer << " have been sent." << std::endl;
+		break;
+	case RequestType::GET_AND_STORE: {
+		logger.info("Saving user coordinates and getting friend coordinates...");
+		std::istringstream is(rdata.second);
+
+		std::string my_coord_1;
+		std::string my_coord_2;
+		is >> my_coord_1;
+		is >> my_coord_2;
+
+		db.execute(conn, "UPDATE users SET coordinates = '%1%' WHERE ip = '%2%';", my_coord_1 + " " + my_coord_2, client_ip);
+
+		std::string friend_id;
+		is >> friend_id;
+
+		db.execute(conn, "SELECT coordinates FROM users WHERE id = '%1%';", friend_id);
+		auto rcoord = db.getLastQueryResults();
+		if (!rcoord.empty()) {
+			send_to_user(sock, rcoord[0]["coordinates"], logger);
+		}
+		else {
+			send_to_user(sock, "", logger);
+		}
+	}
+		break;
+	}
 }

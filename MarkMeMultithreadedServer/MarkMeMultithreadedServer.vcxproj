@@ -134,20 +134,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ConsoleLogger.cpp" />
+    <ClCompile Include="FileLogger.cpp" />
+    <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="SQLConnection.cpp" />
     <ClCompile Include="SQLDatabase.cpp" />
     <ClCompile Include="sqlite3.c" />
-    <ClCompile Include="TasksManager.cpp" />
     <ClCompile Include="Worker.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ConcurrentMap.hpp" />
-    <ClInclude Include="my_utils.hpp" />
+    <ClInclude Include="ConsoleLogger.hpp" />
+    <ClInclude Include="FileLogger.hpp" />
+    <ClInclude Include="Logger.hpp" />
     <ClInclude Include="SQLConnection.hpp" />
     <ClInclude Include="SQLDatabase.hpp" />
     <ClInclude Include="sqlite3.h" />
-    <ClInclude Include="TasksManager.hpp" />
     <ClInclude Include="Worker.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
