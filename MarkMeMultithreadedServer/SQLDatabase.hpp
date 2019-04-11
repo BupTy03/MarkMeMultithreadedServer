@@ -47,7 +47,8 @@ template<class Arg, class... Args>
 std::string SQLDatabase::formatQueryString(const std::string& query_str, Arg&& arg, Args&&... args)
 {
 	boost::format formatter{ query_str };
-	boost::format* list[] = { &(formatter % std::forward<Arg>(arg)), &(formatter % std::forward<Args>(args))... };
+	auto list = { &(formatter % std::forward<Arg>(arg)), &(formatter % std::forward<Args>(args))... };
+	(void)list;
 	return formatter.str();
 }
 

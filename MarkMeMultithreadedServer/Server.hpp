@@ -14,9 +14,7 @@ public:
 		const boost::asio::ip::tcp::endpoint& endpoint)
 		: io_service_(io_service)
 		, acceptor_(io_service, endpoint)
-	{
-		startAccept();
-	}
+	{ startAccept(); }
 
 	void startAccept();
 	void handleAccept(std::shared_ptr<Session> session,

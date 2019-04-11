@@ -14,6 +14,12 @@ bool SQLConnection::open()
 }
 bool SQLConnection::open(const std::string& file)
 {
+	if (connected_) {
+		return true;
+	}
+	if (file.empty()) {
+		return false;
+	}
 	filename_ = file;
 	errorCode_ = sqlite3_open(filename_.c_str(), &db_);
 	connected_ = (errorCode_ == 0);

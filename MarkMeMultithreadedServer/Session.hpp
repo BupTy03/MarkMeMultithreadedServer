@@ -13,7 +13,7 @@
 
 using namespace boost::asio::ip;
 
-class Session : public std::enable_shared_from_this<Session>  /*boost::enable_shared_from_this<Session> */
+class Session : public std::enable_shared_from_this<Session>
 {
 public:
 	
@@ -32,7 +32,6 @@ public:
 private:
 	std::string generatePassword(int num);
 
-	// void handleWrite(const boost::system::error_code&);
 	bool sendToUser(const std::string&);
 
 	bool checkCoordinatesFormat(const std::string&);
@@ -45,7 +44,6 @@ private:
 private:
 	tcp::socket socket_;
 	std::string buffer_;
-	// char buffer_[128];
 	SQLConnection dbConnection_;
 	SQLDatabase database_;
 };

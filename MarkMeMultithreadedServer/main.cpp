@@ -1,10 +1,7 @@
-#define _CRT_SECURE_NO_WARNINGS
+#include "SimpleLogger.hpp"
 
 #include "SQLConnection.hpp"
 #include "SQLDatabase.hpp"
-#include "ConsoleLogger.hpp"
-#include "FileLogger.hpp"
-#include "Logger.hpp"
 
 #include "Session.hpp"
 #include "Server.hpp"
@@ -25,6 +22,10 @@
 
 using boost::asio::ip::tcp;
 
+bool init_server_db(const std::string& db_filename);
+
+#if 0
+
 enum class RequestType {
 	UNKNOWN,
 	INIT,
@@ -34,7 +35,6 @@ enum class RequestType {
 
 std::string gen_random_password(int num);
 
-bool init_server_db(const std::string& db_filename);
 std::pair<RequestType, std::string> receive_user_request(tcp::socket& sock);
 void send_to_user(tcp::socket& sock, const std::string& answer, Logger& logger);
 bool init_user(tcp::socket& sock, SQLDatabase& db, SQLConnection& conn, Logger& logger);
@@ -42,6 +42,7 @@ bool store_coordinates(tcp::socket& sock, SQLDatabase& db, SQLConnection& conn, 
 bool get_coordinates();
 bool store_and_get_coordinates();
 void handle_user_request(tcp::socket& sock, const std::pair<RequestType, std::string>& rdata, Logger& logger);
+#endif
 
 int main(/*int argc, char* argv[]*/)
 {
@@ -53,8 +54,7 @@ int main(/*int argc, char* argv[]*/)
 		// std::unique_ptr<Logger> logger = std::make_unique<ConsoleLogger>();
 
 		if (!init_server_db(filename)) {
-			// logger->fatal("Failed to initialize database!");
-			std::cerr << "Failed to initialize database!" << std::endl;
+			(SimpleLogger::Instance()).fatal("Unable to connect to database!");
 			system("pause");
 			return 1;
 		}
@@ -73,12 +73,12 @@ int main(/*int argc, char* argv[]*/)
 		io_service.run();
 	}
 	catch (std::exception& e) {
-		std::cerr << "Exception: " << e.what() << "\n";
+		(SimpleLogger::Instance()).fatal(std::string("Exception: ") + e.what());
 		system("pause");
 		return -1;
 	}
 	catch (...) {
-		std::cerr << "Something is going wrong!" << "\n";
+		(SimpleLogger::Instance()).fatal("Something is going wrong!");
 		system("pause");
 		return -2;
 	}
@@ -124,6 +124,25 @@ int main(/*int argc, char* argv[]*/)
 	system("pause");
 	return 0;
 }
+
+bool init_server_db(const std::string& db_filename)
+{
+	SQLConnection connection(db_filename);
+	if (!connection.open()) {
+		return false;
+	}
+	SQLDatabase database;
+	database.execute(connection,
+		"CREATE TABLE IF NOT EXISTS users(" \
+		"	id INTEGER PRIMARY KEY AUTOINCREMENT," \
+		"	ip VARCHAR(50)," \
+		"	password VARCHAR(50)," \
+		"	coordinates VARCHAR(50));");
+
+	return true;
+}
+
+#if 0
 
 std::string gen_random_password(int num)
 {
@@ -305,3 +324,5 @@ void handle_user_request(tcp::socket& sock, const std::pair<RequestType, std::st
 		break;
 	}
 }
+
+#endif

@@ -24,9 +24,11 @@ bool SQLDatabase::execute(const SQLConnection& conn, const std::string& query)
 	queryResults_.clear();
 	lastErrorCode_ = sqlite3_exec(conn.getHandle(), query.c_str(), callback, &queryResults_, &err);
 
-	if (lastErrorCode_ != SQLITE_OK || err != nullptr) {
-		lastErrorStr_ = err;
-		sqlite3_free(err);
+	if (lastErrorCode_ != SQLITE_OK) {
+		if (err != nullptr) {
+			lastErrorStr_ = err;
+			sqlite3_free(err);
+		}
 		return false;
 	}
 

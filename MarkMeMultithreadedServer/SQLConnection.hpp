@@ -30,4 +30,15 @@ private:
 	bool connected_{ false };
 };
 
+struct UniqueSQLConnection 
+{
+	UniqueSQLConnection(SQLConnection& conn)
+		: conn_{ conn } 
+	{ conn_.open(); }
+
+	~UniqueSQLConnection() { conn_.close(); }
+private:
+	SQLConnection& conn_;
+};
+
 #endif // !SQLCONNECTION_HPP

@@ -1,4 +1,5 @@
 #include "Session.hpp"
+#include "SimpleLogger.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -10,7 +11,7 @@
 
 void Session::start()
 {
-	std::cout << "Session is started..." << std::endl;
+	(SimpleLogger::Instance()).info("Session is started...");
 	if (!buffer_.empty()) {
 		buffer_.clear();
 	}
@@ -36,28 +37,25 @@ void Session::start()
 
 void Session::receiveDataHandle(const boost::system::error_code& error, std::size_t bytes_tr)
 {
-	std::cout << "receiveDataHandle()" << std::endl;
 	if (error) {
-		std::cerr << "Error " << error.message() << " while receiving data." << std::endl;
+		(SimpleLogger::Instance()).critical("Error while receiving data: " + error.message());
 		return;
 	}
 
-	std::cout << "Received data: " << buffer_ << std::endl;
+	auto data_str = buffer_.substr(0, bytes_tr);
 
-	std::istringstream is(buffer_.substr(0, bytes_tr));
+	(SimpleLogger::Instance()).debug("Received data: " + data_str);
+
+	std::istringstream is(data_str);
 	std::string header;
 	is >> header;
 
-	if (!dbConnection_.isConnected()) {
-		dbConnection_.open();
-	}
-
 	if (header.compare("/init") == 0) {
-		std::cout << "Initializing user..." << std::endl;
+		(SimpleLogger::Instance()).info("Initializing user...");
 		initUser();
 	}
 	else if (header.compare("/store") == 0) {
-		std::cout << "Storing coordinates..." << std::endl;
+		(SimpleLogger::Instance()).info("Storing coordinates...");
 		std::string coordinates;
 		is >> coordinates;
 		if (checkCoordinatesFormat(coordinates)) {
@@ -68,7 +66,8 @@ void Session::receiveDataHandle(const boost::system::error_code& error, std::siz
 		}
 	}
 	else if (header.compare("/get") == 0) {
-		std::cout << "Getting coordinates..." << std::endl;
+		(SimpleLogger::Instance()).info("Getting coordinates...");
+
 		std::string friend_id;
 		std::string friend_pass;
 
@@ -79,11 +78,12 @@ void Session::receiveDataHandle(const boost::system::error_code& error, std::siz
 			getFriendCoordinates(friend_id, friend_pass);
 		}
 		else {
-			std::cerr << "Error: Wrong friend format" << std::endl;
+			(SimpleLogger::Instance()).critical("Error: Wrong friend format");
 		}
 	}
 	else if (header.compare("/store_and_get") == 0) {
-		std::cout << "Storing and getting coordinates..." << std::endl;
+		(SimpleLogger::Instance()).info("Storing and getting coordinates...");
+
 		std::string coordinates;
 		std::string friend_id;
 		std::string friend_pass;
@@ -94,21 +94,20 @@ void Session::receiveDataHandle(const boost::system::error_code& error, std::siz
 
 		if (checkCoordinatesFormat(coordinates)) {
 			storeCoordinates(coordinates);
-			std::cout << "Coordinates: " << coordinates << " are stored." << std::endl;
+			(SimpleLogger::Instance()).debug("Coordinates: " + coordinates + " are stored.");
 		}
 		else {
-			std::cerr << "Error: Wrong coordinates format" << std::endl;
+			(SimpleLogger::Instance()).critical("Error: Wrong coordinates format");
 		}
 
 		if (checkFriendFormat(friend_id, friend_pass)) {
 			getFriendCoordinates(friend_id, friend_pass);
 		}
 		else {
-			std::cerr << "Error: Wrong friend format" << std::endl;
+			(SimpleLogger::Instance()).critical("Error: Wrong friend format");
 		}
 	}
-
-	dbConnection_.close();
+	(SimpleLogger::Instance()).info("Connection closed...\n");
 }
 
 std::string Session::generatePassword(int num)
@@ -131,15 +130,6 @@ std::string Session::generatePassword(int num)
 
 	return result;
 }
-
-/*
-void Session::handleWrite(const boost::system::error_code& error)
-{
-	if (error) {
-		// log error
-	}
-}
-*/
 
 bool Session::checkCoordinatesFormat(const std::string& coordinates)
 {
@@ -166,11 +156,11 @@ bool Session::checkFriendFormat(const std::string& friend_id, const std::string&
 
 bool Session::sendToUser(const std::string& data)
 {
-	std::cout << "Sending data: " << data << std::endl;
+	(SimpleLogger::Instance()).debug("Sending data: " + data);
 	boost::system::error_code ec;
 	boost::asio::write(socket_, boost::asio::buffer(&data[0], data.size()), ec);
 	if (ec) {
-		std::cerr << "Error while sending data." << std::endl;
+		(SimpleLogger::Instance()).critical("Error while sending data.");
 	}
 	return !ec;
 	/*
@@ -185,19 +175,22 @@ void Session::initUser()
 {
 	const auto client_ip = ((socket_.remote_endpoint()).address()).to_string();
 
+	UniqueSQLConnection uconn(dbConnection_);
+
 	database_.execute(dbConnection_, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
 	auto r = database_.getLastQueryResults();
-	if (r.empty() || r[0]["id"] == "NULL") {
+	if (r.empty() || r[0]["id"].compare("NULL") == 0) {
 		database_.execute(dbConnection_, "INSERT INTO users(ip) VALUES('%1%');", client_ip);
 		database_.execute(dbConnection_, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
 	}
+
 	auto res = database_.getLastQueryResults();
 	if (res.empty()) {
-		std::cerr << "Database error: " << database_.getLastErrorMessage() << std::endl;
+		(SimpleLogger::Instance()).critical("Database error: " + database_.getLastErrorMessage());
 		sendToUser("");
 	}
 	else {
-		std::cout << "Generating password..." << std::endl;
+		(SimpleLogger::Instance()).info("Generating password...");
 		const auto pass = generatePassword(8);
 		const auto hashed_pass = std::to_string(std::hash<std::string>()(pass));
 		database_.execute(dbConnection_, "UPDATE users SET password = '%1%' WHERE id = '%2%';", hashed_pass, res[0]["id"]);
@@ -208,12 +201,19 @@ void Session::initUser()
 void Session::storeCoordinates(const std::string& coordinates)
 {
 	const auto client_ip = ((socket_.remote_endpoint()).address()).to_string();
+
+	UniqueSQLConnection uconn(dbConnection_);
 	database_.execute(dbConnection_, "UPDATE users SET coordinates = '%1%' WHERE ip = '%2%';", coordinates, client_ip);
+	if (database_.getLastErrorCode() != 0) {
+		(SimpleLogger::Instance()).critical("Database error: " + database_.getLastErrorMessage());
+	}
+
 	sendToUser("");
 }
 
 void Session::getFriendCoordinates(const std::string& friend_id, const std::string& friend_password)
 {
+	UniqueSQLConnection uconn(dbConnection_);
 	database_.execute(dbConnection_, "SELECT id FROM users WHERE id = '%1%' AND password = '%2%;'",
 		friend_id, std::to_string(std::hash<std::string>()(friend_password)));
 
@@ -232,7 +232,7 @@ void Session::getFriendCoordinates(const std::string& friend_id, const std::stri
 	auto rcoord = database_.getLastQueryResults();
 	if (!rcoord.empty()) {
 		sendToUser(rcoord[0]["coordinates"]);
-		std::cout << "Friend coordinates: " << rcoord[0]["coordinates"] << " sent." << std::endl;
+		(SimpleLogger::Instance()).debug("Friend coordinates: " + rcoord[0]["coordinates"] + " sent.");
 	}
 	else {
 		sendToUser("");
