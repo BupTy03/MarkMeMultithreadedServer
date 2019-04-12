@@ -16,9 +16,9 @@ class SQLDatabase
 public:
 	SQLDatabase() {}
 
-	bool execute(const SQLConnection& conn, const std::string& query);
+	bool execute(SQLConnection& conn, const std::string& query);
 	template<class... Args>
-	bool execute(const SQLConnection& conn, const std::string& query, Args&&... args);
+	bool execute(SQLConnection& conn, const std::string& query, Args&&... args);
 
 	inline int getLastErrorCode() const { return lastErrorCode_; }
 	inline std::string getLastErrorMessage() const { return lastErrorStr_; }
@@ -38,7 +38,7 @@ private:
 };
 
 template<class... Args>
-bool SQLDatabase::execute(const SQLConnection& conn, const std::string& query, Args&&... args)
+bool SQLDatabase::execute(SQLConnection& conn, const std::string& query, Args&&... args)
 {
 	return execute(conn, formatQueryString(query, std::forward<Args>(args)...));
 }

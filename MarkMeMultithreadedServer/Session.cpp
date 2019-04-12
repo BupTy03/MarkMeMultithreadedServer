@@ -84,13 +84,17 @@ void Session::receiveDataHandle(const boost::system::error_code& error, std::siz
 	else if (header.compare("/store_and_get") == 0) {
 		(SimpleLogger::Instance()).info("Storing and getting coordinates...");
 
-		std::string coordinates;
+		std::string latitude;
+		std::string longitude;
 		std::string friend_id;
 		std::string friend_pass;
 
-		is >> coordinates;
+		is >> latitude;
+		is >> longitude;
 		is >> friend_id;
 		is >> friend_pass;
+
+		auto coordinates = latitude + " " + longitude;
 
 		if (checkCoordinatesFormat(coordinates)) {
 			storeCoordinates(coordinates);
@@ -139,6 +143,10 @@ bool Session::checkCoordinatesFormat(const std::string& coordinates)
 
 bool Session::checkFriendFormat(const std::string& friend_id, const std::string& friend_password)
 {
+	if (friend_id.empty() || friend_password.empty()) {
+		return false;
+	}
+
 	for (auto ch : friend_id) {
 		if (!(ch >= '0' && ch <= '9')) {
 			return false;
@@ -179,7 +187,7 @@ void Session::initUser()
 
 	database_.execute(dbConnection_, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
 	auto r = database_.getLastQueryResults();
-	if (r.empty() || r[0]["id"].compare("NULL") == 0) {
+	if (r.empty() || r[0]["id"] == "NULL") {
 		database_.execute(dbConnection_, "INSERT INTO users(ip) VALUES('%1%');", client_ip);
 		database_.execute(dbConnection_, "SELECT id FROM users WHERE ip = '%1%';", client_ip);
 	}
@@ -187,15 +195,13 @@ void Session::initUser()
 	auto res = database_.getLastQueryResults();
 	if (res.empty()) {
 		(SimpleLogger::Instance()).critical("Database error: " + database_.getLastErrorMessage());
-		sendToUser("");
+		return;
 	}
-	else {
-		(SimpleLogger::Instance()).info("Generating password...");
-		const auto pass = generatePassword(8);
-		const auto hashed_pass = std::to_string(std::hash<std::string>()(pass));
-		database_.execute(dbConnection_, "UPDATE users SET password = '%1%' WHERE id = '%2%';", hashed_pass, res[0]["id"]);
-		sendToUser(res[0]["id"] + " " + pass);
-	}
+	(SimpleLogger::Instance()).info("Generating password...");
+	const auto pass = generatePassword(8);
+	database_.execute(dbConnection_, "UPDATE users SET password = '%1%' WHERE id = '%2%';", 
+		std::to_string(std::hash<std::string>()(pass)), res[0]["id"]);
+	sendToUser(res[0]["id"] + " " + pass);
 }
 
 void Session::storeCoordinates(const std::string& coordinates)
@@ -207,34 +213,36 @@ void Session::storeCoordinates(const std::string& coordinates)
 	if (database_.getLastErrorCode() != 0) {
 		(SimpleLogger::Instance()).critical("Database error: " + database_.getLastErrorMessage());
 	}
-
-	sendToUser("");
 }
 
 void Session::getFriendCoordinates(const std::string& friend_id, const std::string& friend_password)
 {
+	// (SimpleLogger::Instance()).info("Friend id: " + friend_id);
+	// (SimpleLogger::Instance()).info("Friend pass: " + friend_password);
+
 	UniqueSQLConnection uconn(dbConnection_);
-	database_.execute(dbConnection_, "SELECT id FROM users WHERE id = '%1%' AND password = '%2%;'",
+	database_.execute(dbConnection_, "SELECT id FROM users WHERE id = '%1%' AND password = '%2%';",
 		friend_id, std::to_string(std::hash<std::string>()(friend_password)));
 
 	if (database_.getLastErrorCode() != 0) {
-		sendToUser("");
+		(SimpleLogger::Instance()).critical(database_.getLastErrorMessage());
 		return;
 	}
 
 	auto ans_id = database_.getLastQueryResults();
 	if (ans_id.empty() || ans_id[0]["id"] != friend_id) {
-		sendToUser("");
 		return;
 	}
 
 	database_.execute(dbConnection_, "SELECT coordinates FROM users WHERE id = '%1%';", friend_id);
+	if (database_.getLastErrorCode() != 0) {
+		(SimpleLogger::Instance()).critical(database_.getLastErrorMessage());
+		return;
+	}
 	auto rcoord = database_.getLastQueryResults();
-	if (!rcoord.empty()) {
-		sendToUser(rcoord[0]["coordinates"]);
-		(SimpleLogger::Instance()).debug("Friend coordinates: " + rcoord[0]["coordinates"] + " sent.");
-	}
-	else {
-		sendToUser("");
-	}
+
+	if (rcoord.empty()) return;
+
+	sendToUser(rcoord[0]["coordinates"]);
+	(SimpleLogger::Instance()).debug("Friend coordinates: " + rcoord[0]["coordinates"] + " sent.");
 }

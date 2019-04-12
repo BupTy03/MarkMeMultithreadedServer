@@ -1,27 +1,32 @@
 #include "SQLDatabase.hpp"
 
-int callback(void* query_results, int count_values, char** values, char** columns)
+static int callback(void* query_results, int count_values, char** values, char** columns)
 {
 	if (query_results == nullptr) {
 		return 1;
 	}
-	auto results = reinterpret_cast<SQLDatabase::SQLQueryResults*>(query_results);
-	results->emplace_back();
-	auto& curr_record = results->back();
-	for (int i = 0; i < count_values; ++i) {
-		curr_record[columns[i]] = ((values[i] != nullptr) ? values[i] : "NULL");
+	try {
+		auto results = reinterpret_cast<SQLDatabase::SQLQueryResults*>(query_results);
+		results->clear();
+		results->reserve(count_values);
+		for (int i = 0; i < count_values; ++i) {
+			results->emplace_back();
+			(results->back()).emplace(columns[i], ((values[i] != nullptr) ? values[i] : "NULL"));
+		}
+	}
+	catch (...) {
+		return 2;
 	}
 	return 0;
 }
 
-bool SQLDatabase::execute(const SQLConnection& conn, const std::string& query)
+bool SQLDatabase::execute(SQLConnection& conn, const std::string& query)
 {
 	if (!conn.isConnected()) {
 		return false;
 	}
 
-	char* err{ nullptr };
-	queryResults_.clear();
+	char* err;
 	lastErrorCode_ = sqlite3_exec(conn.getHandle(), query.c_str(), callback, &queryResults_, &err);
 
 	if (lastErrorCode_ != SQLITE_OK) {

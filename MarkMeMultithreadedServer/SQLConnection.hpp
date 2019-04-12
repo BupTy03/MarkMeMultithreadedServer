@@ -21,7 +21,7 @@ public:
 
 	inline bool isConnected() const { return connected_; }
 	inline int getLastErrorCode() const { return errorCode_; }
-	inline sqlite3* getHandle() const { return db_; }
+	inline sqlite3* getHandle() { return db_; }
 
 private:
 	sqlite3* db_{ nullptr };
