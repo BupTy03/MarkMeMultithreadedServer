@@ -137,7 +137,7 @@ std::string Session::generatePassword(int num)
 
 bool Session::checkCoordinatesFormat(const std::string& coordinates)
 {
-	std::regex reg("\\d+,\\d+\\s\\d+,\\d+");
+	std::regex reg("^\\d+,\\d+\\s\\d+,\\d+$");
 	return std::regex_match(coordinates, reg);
 }
 
