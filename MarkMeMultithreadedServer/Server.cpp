@@ -4,7 +4,7 @@
 
 void Server::startAccept()
 {
-	auto next_session = std::make_shared<Session>(io_service_, "users.db");
+	auto next_session = std::make_shared<Session>(ioService_, dbFilename_);
 	acceptor_.async_accept(next_session->socket(),
 		boost::bind(&Server::handleAccept, this, next_session,
 			boost::asio::placeholders::error));
