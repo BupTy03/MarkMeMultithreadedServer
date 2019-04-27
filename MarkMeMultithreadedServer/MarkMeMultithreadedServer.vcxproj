@@ -141,7 +141,6 @@
     <ClCompile Include="SQLConnection.cpp" />
     <ClCompile Include="SQLDatabase.cpp" />
     <ClCompile Include="sqlite3.c" />
-    <ClCompile Include="Worker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Server.hpp" />
@@ -150,7 +149,6 @@
     <ClInclude Include="SQLConnection.hpp" />
     <ClInclude Include="SQLDatabase.hpp" />
     <ClInclude Include="sqlite3.h" />
-    <ClInclude Include="Worker.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

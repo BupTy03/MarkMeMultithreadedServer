@@ -3,71 +3,62 @@
 
 #include <string>
 #include <mutex>
-#include <atomic>
 
-enum class LoggerType {
-	CONSOLE,
-	FILE
-};
+#ifdef DEBUG
+#ifdef LOGGING_TO_FILE
+#define LogMsg(tag, message) ((debug_tools::SimpleLogger::Instance()).logToFile((tag), (message)))
+#else
+#define LogMsg(tag, message) ((debug_tools::SimpleLogger::Instance()).log((tag), (message)))
+#endif // LOGGING_TO_FILE
 
-class SimpleLogger
-{
-public:
-	enum LogLevel {
-		INFO = 0b10000,
-		DEBUG = 0b01000,
-		WARNING = 0b00100,
-		CRITICAL = 0b00010,
-		FATAL = 0b00001,
-		NONE = 0b00000
+#define LogDebug(message)		(LogMsg("DEBUG", (message)))
+#define LogInfo(message)		(LogMsg("INFO", (message)))
+#define LogWarning(message)		(LogMsg("WARNING", (message)))
+#define LogCritical(message)	(LogMsg("CRITICAL", (message)))
+#define LogFatal(message)		(LogMsg("FATAL", (message)))
+
+#else
+#define LogMsg(tag, message)	((void)0)
+
+#define LogDebug(message)		((void)0)
+#define LogInfo(message)		((void)0)
+#define LogWarning(message)		((void)0)
+#define LogCritical(message)	((void)0)
+#define LogFatal(message)		((void)0)
+
+#endif // DEBUG
+
+namespace debug_tools {
+
+	class SimpleLogger
+	{
+	public:
+
+		static SimpleLogger& Instance();
+
+		void setDateTimeFormat(const std::string&);
+		std::string getDateTimeFormat() const;
+
+		void setFileName(const std::string&);
+		std::string getFileName() const;
+
+		void log(const std::string&, const std::string&);
+		void logToFile(const std::string&, const std::string&);
+
+	private:
+		SimpleLogger()
+			: dateTimeFormat_{ "%Y-%m-%d %H:%M:%S" }
+			, filename_{ "logfile.txt" }
+		{}
+
+		std::string getCurrentDateTime() const;
+
+	private:
+		std::string filename_;
+		std::string dateTimeFormat_;
+		mutable std::mutex mtx_;
 	};
 
-	static SimpleLogger& Instance();
-
-	void setLoggerType(LoggerType t) { type_ = t; }
-	LoggerType getLoggerType() { return type_; }
-
-	void setDateTimeFormat(const std::string&);
-	std::string getDateTimeFormat() const;
-
-	void setLogLevel(int lvl) { logLevel_ = lvl; }
-	inline int getLogLevel() const { return logLevel_; }
-
-	void setFileName(const std::string&);
-	std::string getFileName() const;
-
-	void log(const std::string&, const std::string&);
-
-	void info(const std::string&);
-	void debug(const std::string&);
-	void warning(const std::string&);
-	void critical(const std::string&);
-	void fatal(const std::string&);
-
-private:
-	SimpleLogger()
-		: logLevel_{ 0b11111 }
-		, type_{ LoggerType::CONSOLE }
-		, dateTimeFormat_{ "%Y-%m-%d %H:%M:%S" }
-		, filename_{ "logfile.txt" }
-	{}
-
-	inline bool getBit(int num, int k) const noexcept { return (num & (1 << k)) != 0; }
-
-	inline bool hasInfoLvl()		const noexcept { return getBit(logLevel_, 4); }
-	inline bool hasDebugLvl()		const noexcept { return getBit(logLevel_, 3); }
-	inline bool hasWarningLvl()		const noexcept { return getBit(logLevel_, 2); }
-	inline bool hasCriticalLvl()	const noexcept { return getBit(logLevel_, 1); }
-	inline bool hasFatalLvl()		const noexcept { return getBit(logLevel_, 0); }
-
-	std::string getCurrentDateTime() const;
-
-private:
-	std::atomic<int> logLevel_;
-	std::atomic<LoggerType> type_;
-	std::string dateTimeFormat_;
-	std::string filename_;
-	mutable std::mutex mtx_;
-};
+}
 
 #endif // !SIMPLE_LOGGER_HPP

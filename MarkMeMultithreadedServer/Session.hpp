@@ -1,6 +1,8 @@
 #ifndef SESSION_HPP
 #define SESSION_HPP
 
+#define DEBUG
+
 #include "SQLConnection.hpp"
 #include "SQLDatabase.hpp"
 
