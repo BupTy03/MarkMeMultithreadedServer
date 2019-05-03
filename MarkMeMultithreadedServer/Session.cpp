@@ -103,6 +103,22 @@ void Session::receiveDataHandle(const boost::system::error_code& error, std::siz
 			LogCritical("Error: Wrong friend format");
 		}
 	}
+	else if (header.compare("/check") == 0) {
+		LogInfo("Checking id and password of a friend...");
+
+		std::string friend_id;
+		std::string friend_pass;
+
+		is >> friend_id;
+		is >> friend_pass;
+
+		if (checkFriendFormat(friend_id, friend_pass)) {
+			checkFriendIdAndPassword(friend_id, friend_pass);
+		}
+		else {
+			LogCritical("Error: Wrong friend format");
+		}
+	}
 	LogInfo("Connection closed...\n");
 }
 
@@ -240,4 +256,26 @@ void Session::getFriendCoordinates(const std::string& friend_id, const std::stri
 	sendToUser(rcoord[0]["coordinates"]);
 
 	LogDebug("Friend coordinates: " + rcoord[0]["coordinates"] + " sent.");
+}
+
+void Session::checkFriendIdAndPassword(const std::string& friend_id, const std::string& friend_password)
+{
+	LogInfo("Checking friend with id: " + friend_id + " and password " + friend_password);
+
+	UniqueSQLConnection uconn(dbConnection_);
+	database_.execute(dbConnection_, "SELECT id FROM users WHERE id = '%1%' AND password = '%2%';",
+		friend_id, std::to_string(std::hash<std::string>()(friend_password)));
+
+	if (database_.getLastErrorCode() != 0) {
+		LogCritical("Database error while finding friend record: " + database_.getLastErrorMessage());
+		return;
+	}
+
+	auto ans_id = database_.getLastQueryResults();
+	if (ans_id.empty() || ans_id[0].find("id") == std::end(ans_id[0]) || ans_id[0]["id"] == "NULL") {
+		sendToUser("wrong");
+		return;
+	}
+
+	sendToUser("ok");
 }

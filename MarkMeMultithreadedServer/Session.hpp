@@ -42,6 +42,7 @@ private:
 	void initUser();
 	void storeCoordinates(const std::string&);
 	void getFriendCoordinates(const std::string&, const std::string&);
+	void checkFriendIdAndPassword(const std::string&, const std::string&);
 
 private:
 	tcp::socket socket_;
