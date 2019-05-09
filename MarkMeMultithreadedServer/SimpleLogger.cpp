@@ -1,5 +1,4 @@
-// for std::localtime()
-#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS // for using std::localtime()
 
 #include "SimpleLogger.hpp"
 
