@@ -30,14 +30,9 @@
 
 namespace debug_tools {
 
-	class SimpleLogger
+	struct SimpleLogger
 	{
-	public:
-
 		static SimpleLogger& Instance();
-
-		void setDateTimeFormat(const std::string&);
-		std::string getDateTimeFormat() const;
 
 		void setFileName(const std::string&);
 		std::string getFileName() const;
@@ -45,17 +40,12 @@ namespace debug_tools {
 		void log(const std::string&, const std::string&);
 		void logToFile(const std::string&, const std::string&);
 
-	private:
 		SimpleLogger()
-			: dateTimeFormat_{ "%Y-%m-%d %H:%M:%S" }
-			, filename_{ "logfile.txt" }
+			: filename_{ "log.txt" }
 		{}
-
-		std::string getCurrentDateTime() const;
 
 	private:
 		std::string filename_;
-		std::string dateTimeFormat_;
 		mutable std::mutex mtx_;
 	};
 
