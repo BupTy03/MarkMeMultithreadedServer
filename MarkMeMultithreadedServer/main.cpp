@@ -28,6 +28,7 @@ int main(int argc, char* argv[])
 	std::string db_filename = "users.db";
 
 	if (!setup_args(argc, argv, count_servers, db_filename, port)) {
+		cerr << "Unable to setup command line arguments!" << endl;
 		system("pause");
 		return 1;
 	}
@@ -45,12 +46,10 @@ int main(int argc, char* argv[])
 		catch (const std::exception& e) {
 			cerr << "Server is down. :/" << endl;
 			LogFatal(std::string("Exception: ") + e.what());
-			return 3;
 		}
 		catch (...) {
 			cerr << "Server is down. :/" << endl;
 			LogFatal("Something went wrong.");
-			return 4;
 		}
 		cout << "Restarting server..." << endl;
 	}
